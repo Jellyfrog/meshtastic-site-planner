@@ -4,13 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./ui:/app/ui
+      - tiles:/app/.splat_tiles
     environment:
       - HOME=/root
       - TERM=xterm
       - VIRTUAL_HOST=site.meshtastic.org
       - VIRTUAL_PORT=8080
-      - LETSENCRYPT_HOST=site.meshtastic.org
     mem_limit: 12G
     ports:
       - 8080:8080
@@ -51,20 +50,6 @@ services:
     networks:
       - app-network
 
-  acme-companion:
-    image: nginxproxy/acme-companion
-    container_name: nginx-proxy-acme
-    environment:
-      - DEFAULT_EMAIL=thebentern@meshtastic.org
-    volumes_from:
-      - nginx-proxy
-    volumes:
-      - certs:/etc/nginx/certs:rw
-      - acme:/etc/acme.sh
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - app-network
-
 networks:
   app-network:
 
@@ -74,3 +59,4 @@ volumes:
   html:
   certs:
   acme:
+  tiles:

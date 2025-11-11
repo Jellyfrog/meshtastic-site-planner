@@ -37,7 +37,7 @@ class Splat:
         self,
         splat_path: str,
         cache_dir: str = ".splat_tiles",
-        cache_size_gb: float = 1.0,
+        cache_size_gb: float = 50.0,
         bucket_name: str = "elevation-tiles-prod",
         bucket_prefix:str = "v2/skadi"
     ):
@@ -142,10 +142,10 @@ class Splat:
                 # FIXME: Eventually support high-resolution terrain data
                 request.high_resolution = False
 
-                # Set hard limit of 100 km radius
-                if request.radius > 100000:
-                    logger.debug(f"User tried to set radius of {request.radius} meters, setting to 100 km.")
-                    request.radius = 100000
+                # Set hard limit of 500 km radius
+                if request.radius > 500000:
+                    logger.debug(f"User tried to set radius of {request.radius} meters, setting to 500 km.")
+                    request.radius = 500000
 
                 # determine the required terrain tiles
                 required_tiles = Splat._calculate_required_terrain_tiles(request.lat, request.lon, request.radius)
@@ -213,7 +213,7 @@ class Splat:
                     "-ppm",
                     "-olditm"
                 ] # flag "olditm" uses the standard ITM model instead of ITWOM, which has produced unrealistic results.
-                logger.debug(f"Executing SPLAT! command: {' '.join(splat_command)}")
+                logger.info(f"Executing SPLAT! command: {' '.join(splat_command)}")
 
                 splat_result = subprocess.run(
                     splat_command,
@@ -235,6 +235,7 @@ class Splat:
                         f"Stdout: {splat_result.stdout}\nStderr: {splat_result.stderr}"
                     )
 
+                logger.info("SPLAT! Generating geotiff.")
                 with open(os.path.join(tmpdir, "output.ppm"), "rb") as ppm_file:
                     with open(os.path.join(tmpdir, "output.kml"), "rb") as kml_file:
                         ppm_data = ppm_file.read()
