@@ -19,10 +19,10 @@ const useStore = defineStore('store', {
       splatParams: <SplatParams>{
         transmitter: {
           name: randanimalSync(),
-          tx_lat: 51.102167,
-          tx_lon: -114.098667,
+          tx_lat: 59.3268,
+          tx_lon: 18.0717,
           tx_power: 0.1,
-          tx_freq: 907.0,
+          tx_freq: 869.5,
           tx_height: 2.0,
           tx_gain: 2.0
         },
@@ -30,10 +30,10 @@ const useStore = defineStore('store', {
           rx_sensitivity: -130.0,
           rx_height: 1.0,
           rx_gain: 2.0,
-          rx_loss: 2.0
+          rx_loss: 1.0
         },
         environment: {
-          radio_climate: 'continental_temperate',
+          radio_climate: 'maritime_temperate_land',
           polarization: 'vertical',
           clutter_height: 1.0,
           ground_dielectric: 15.0,
@@ -86,17 +86,20 @@ const useStore = defineStore('store', {
 
       // Add GeoRasterLayers back to the map
       this.localSites.forEach((site: Site) => {
+         const palette = site.raster.palette;
         const rasterLayer = new GeoRasterLayer({
-          georaster: {...site}.raster,
+          caching: true,
+          georaster: site.raster,
           opacity: 0.7,
-          noDataValue: 255,
-          resolution: 256,
+          resolution: 64,
+          pixelValuesToColorFn: (values: Number[]) =>  values[0] == 255 ? null : palette[values[0] as number]
         });
-        rasterLayer.addTo(this.map as L.Map);
+        rasterLayer.addTo(this.map);
         rasterLayer.bringToFront();
+        //this.map.fitBounds(rasterLayer.getBounds());
       });
     },
-    initMap() {     
+    initMap() {
       this.map = L.map("map", {
         // center: [51.102167, -114.098667],
         zoom: 10,
@@ -190,10 +193,10 @@ const useStore = defineStore('store', {
           min_dbm: this.splatParams.display.min_dbm,
           max_dbm: this.splatParams.display.max_dbm,
         };
-    
+
         console.log("Payload:", payload);
         this.simulationState = 'running';
-    
+
         // Send the request to the backend's /predict endpoint
         const predictResponse = await fetch("/predict", {
           method: "POST",
@@ -202,20 +205,20 @@ const useStore = defineStore('store', {
           },
           body: JSON.stringify(payload),
         });
-    
+
         if (!predictResponse.ok) {
           this.simulationState = 'failed';
           const errorDetails = await predictResponse.text();
           throw new Error(`Failed to start prediction: ${errorDetails}`);
         }
-    
+
         const predictData = await predictResponse.json();
         const taskId = predictData.task_id;
-    
+
         console.log(`Prediction started with task ID: ${taskId}`);
 
         // Poll for task status and result
-        const pollInterval = 1000; // 1 seconds
+        const pollInterval = 3000; // 1 seconds
         const pollStatus = async () => {
           const statusResponse = await fetch(
             `/status/${taskId}`,
@@ -223,10 +226,10 @@ const useStore = defineStore('store', {
           if (!statusResponse.ok) {
             throw new Error("Failed to fetch task status.");
           }
-    
+
           const statusData = await statusResponse.json();
           console.log("Task status:", statusData);
-    
+
           if (statusData.status === "completed") {
             this.simulationState = 'completed';
             console.log("Simulation completed! Adding result to the map...");
@@ -258,7 +261,7 @@ const useStore = defineStore('store', {
             setTimeout(pollStatus, pollInterval); // Retry after interval
           }
         };
-    
+
         pollStatus(); // Start polling
       } catch (error) {
         console.error("Error:", error);

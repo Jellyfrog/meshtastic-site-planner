@@ -37,7 +37,7 @@ class Splat:
         self,
         splat_path: str,
         cache_dir: str = ".splat_tiles",
-        cache_size_gb: float = 1.0,
+        cache_size_gb: float = 50.0,
         bucket_name: str = "elevation-tiles-prod",
         bucket_prefix:str = "v2/skadi"
     ):
@@ -142,10 +142,10 @@ class Splat:
                 # FIXME: Eventually support high-resolution terrain data
                 request.high_resolution = False
 
-                # Set hard limit of 100 km radius
-                if request.radius > 100000:
-                    logger.debug(f"User tried to set radius of {request.radius} meters, setting to 100 km.")
-                    request.radius = 100000
+                # Set hard limit of 500 km radius
+                if request.radius > 500000:
+                    logger.debug(f"User tried to set radius of {request.radius} meters, setting to 500 km.")
+                    request.radius = 500000
 
                 # determine the required terrain tiles
                 required_tiles = Splat._calculate_required_terrain_tiles(request.lat, request.lon, request.radius)
@@ -197,7 +197,6 @@ class Splat:
                     "tx.qth",
                     "-L",
                     str(request.rx_height),
-                    "-metric",
                     "-R",
                     str(request.radius / 1000.0),
                     "-sc",
@@ -206,14 +205,15 @@ class Splat:
                     "-ngs",
                     "-N",
                     "-o",
-                    "output.ppm",
+                    "output",
                     "-dbm",
                     "-db",
                     str(request.signal_threshold),
                     "-kml",
+                    "-ppm",
                     "-olditm"
                 ] # flag "olditm" uses the standard ITM model instead of ITWOM, which has produced unrealistic results.
-                logger.debug(f"Executing SPLAT! command: {' '.join(splat_command)}")
+                logger.info(f"Executing SPLAT! command: {' '.join(splat_command)}")
 
                 splat_result = subprocess.run(
                     splat_command,
@@ -235,6 +235,7 @@ class Splat:
                         f"Stdout: {splat_result.stdout}\nStderr: {splat_result.stderr}"
                     )
 
+                logger.info("SPLAT! Generating geotiff.")
                 with open(os.path.join(tmpdir, "output.ppm"), "rb") as ppm_file:
                     with open(os.path.join(tmpdir, "output.kml"), "rb") as kml_file:
                         ppm_data = ppm_file.read()
@@ -348,7 +349,7 @@ class Splat:
                 f"{name}\n"
                 f"{latitude:.6f}\n"
                 f"{abs(longitude) if longitude < 0 else 360 - longitude:.6f}\n"  # SPLAT! expects west longitude as a positive number.
-                f"{elevation:.2f}\n"
+                f"{elevation:.2f}m\n"
             )
             logger.debug(f"Generated .qth file contents:\n{contents}")
             return contents.encode('utf-8')  # Return as bytes
@@ -653,7 +654,7 @@ class Splat:
             min_lon = int(hgt_filename[4:7]) - (-1 if hgt_filename[3] == 'E' else 1) # fix off-by-one error in eastern hemisphere
             min_lon = 360 - min_lon if hgt_filename[3] == 'E' else min_lon
             max_lon = 0 if min_lon == 359 else min_lon + 1
-            return f"{lat}:{lat + 1}:{min_lon}:{max_lon}{'-hd.sdf' if high_resolution else '.sdf'}"
+            return f"{lat}_{lat + 1}_{min_lon}_{max_lon}{'-hd.sdf' if high_resolution else '.sdf'}"
 
     def _convert_hgt_to_sdf(self, tile: bytes, tile_name: str, high_resolution: bool = False) -> bytes:
         """
